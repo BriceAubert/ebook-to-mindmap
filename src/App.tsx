@@ -50,7 +50,7 @@ interface BookMindMap {
   combinedMindMap: MindElixirData | null
 }
 
-// 导入配置store
+// Import config store
 import { useAIConfig, useProcessingOptions, useConfigStore } from './stores/configStore'
 const cacheService = new CacheService()
 
@@ -71,17 +71,17 @@ function App() {
 
 
 
-  // 使用zustand store管理配置
+  // Use zustand store to manage config
   const aiConfig = useAIConfig()
   const processingOptions = useProcessingOptions()
 
-  // 从store中解构状态值
+  // Destructure state values from store
   const { apiKey } = aiConfig
   const { processingMode, bookType, useSmartDetection, skipNonEssentialChapters } = processingOptions
 
-  // zustand的persist中间件会自动处理配置的加载和保存
+  // zustand's persist middleware will automatically handle config loading and saving
 
-  // 监听滚动事件，控制回到顶部按钮显示
+  // Listen to scroll event to control back-to-top button display
   useEffect(() => {
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 300)
@@ -97,7 +97,7 @@ function App() {
     const selectedFile = event.target.files?.[0]
     if (selectedFile && (selectedFile.name.endsWith('.epub') || selectedFile.name.endsWith('.pdf'))) {
       setFile(selectedFile)
-      // 重置章节提取状态
+  // Reset chapter extraction state
       setExtractedChapters(null)
       setSelectedChapters(new Set())
       setBookData(null)
@@ -111,44 +111,44 @@ function App() {
     }
   }, [t])
 
-  // 清除章节缓存的函数
+  // Function to clear chapter cache
   const clearChapterCache = (chapterId: string) => {
     if (!file) return
 
     const type = processingMode === 'summary' ? 'summary' : 'mindmap'
     if (cacheService.clearChapterCache(file.name, chapterId, type)) {
-      toast.success('已清除缓存，下次处理将重新生成内容', {
+  toast.success('Cache cleared. Content will be regenerated next time.', {
         duration: 3000,
         position: 'top-center',
       })
     }
   }
 
-  // 清除特定类型缓存的函数
+  // Function to clear specific type of cache
   const clearSpecificCache = (cacheType: 'connections' | 'overall_summary' | 'combined_mindmap' | 'merged_mindmap') => {
     if (!file) return
 
     const displayNames = {
-      connections: '章节关联',
-      overall_summary: '全书总结',
-      combined_mindmap: '整书思维导图',
-      merged_mindmap: '章节思维导图整合'
+      connections: 'Chapter Connections',
+      overall_summary: 'Book Summary',
+      combined_mindmap: 'Whole Book Mind Map',
+      merged_mindmap: 'Merged Chapter Mind Map'
     }
 
     if (cacheService.clearSpecificCache(file.name, cacheType)) {
-      toast.success(`已清除${displayNames[cacheType]}缓存，下次处理将重新生成内容`, {
+  toast.success(`Cleared ${displayNames[cacheType]} cache. Content will be regenerated next time.`, {
         duration: 3000,
         position: 'top-center',
       })
     } else {
-      toast.info(`没有找到可清除的${displayNames[cacheType]}缓存`, {
+  toast.info(`No ${displayNames[cacheType]} cache found to clear.`, {
         duration: 3000,
         position: 'top-center',
       })
     }
   }
 
-  // 章节选择处理函数
+  // Chapter selection handler
   const handleChapterSelect = useCallback((chapterId: string, checked: boolean) => {
     setSelectedChapters(prev => {
       const newSet = new Set(prev)
@@ -161,7 +161,7 @@ function App() {
     })
   }, [])
 
-  // 全选/取消全选处理函数
+  // Select all/deselect all handler
   const handleSelectAll = useCallback((checked: boolean) => {
     if (!extractedChapters) return
 
@@ -172,7 +172,7 @@ function App() {
     }
   }, [extractedChapters])
 
-  // 清除整本书缓存的函数
+  // Function to clear whole book cache
   const clearBookCache = () => {
     if (!file) return
 
@@ -180,25 +180,25 @@ function App() {
     const deletedCount = cacheService.clearBookCache(file.name, mode)
 
     const modeNames = {
-      'summary': '文字总结',
-      'mindmap': '章节思维导图',
-      'combined-mindmap': '整书思维导图'
+      'summary': 'Text Summary',
+      'mindmap': 'Chapter Mind Map',
+      'combined-mindmap': 'Whole Book Mind Map'
     }
 
     if (deletedCount > 0) {
-      toast.success(`已清除${deletedCount}项${modeNames[processingMode]}缓存，下次处理将重新生成内容`, {
+  toast.success(`Cleared ${deletedCount} ${modeNames[processingMode]} cache items. Content will be regenerated next time.`, {
         duration: 3000,
         position: 'top-center',
       })
     } else {
-      toast.info(`没有找到可清除的${modeNames[processingMode]}缓存`, {
+  toast.info(`No ${modeNames[processingMode]} cache found to clear.`, {
         duration: 3000,
         position: 'top-center',
       })
     }
   }
 
-  // 提取章节的函数
+  // Function to extract chapters
   const extractChapters = useCallback(async () => {
     if (!file) {
       toast.error(t('upload.pleaseSelectFile'), {
@@ -221,24 +221,24 @@ function App() {
 
       if (isEpub) {
         const processor = new EpubProcessor()
-        setCurrentStep('正在解析 EPUB 文件...')
+  setCurrentStep('Parsing EPUB file...')
         const bookData = await processor.parseEpub(file)
         extractedBookData = { title: bookData.title, author: bookData.author }
         setProgress(50)
 
-        setCurrentStep('正在提取章节内容...')
+  setCurrentStep('Extracting chapter content...')
         chapters = await processor.extractChapters(bookData.book, useSmartDetection, skipNonEssentialChapters, processingOptions.maxSubChapterDepth)
       } else if (isPdf) {
         const processor = new PdfProcessor()
-        setCurrentStep('正在解析 PDF 文件...')
+  setCurrentStep('Parsing PDF file...')
         const bookData = await processor.parsePdf(file)
         extractedBookData = { title: bookData.title, author: bookData.author }
         setProgress(50)
 
-        setCurrentStep('正在提取章节内容...')
+  setCurrentStep('Extracting chapter content...')
         chapters = await processor.extractChapters(file, useSmartDetection, skipNonEssentialChapters, processingOptions.maxSubChapterDepth)
       } else {
-        throw new Error('不支持的文件格式')
+  throw new Error('Unsupported file format')
       }
       setProgress(100)
 
@@ -246,14 +246,14 @@ function App() {
       setExtractedChapters(chapters)
       // 默认选中所有章节
       setSelectedChapters(new Set(chapters.map(chapter => chapter.id)))
-      setCurrentStep(`章节提取完成！共提取到 ${chapters.length} 个章节`)
+  setCurrentStep(`Chapter extraction complete! ${chapters.length} chapters extracted.`)
 
-      toast.success(`成功提取 ${chapters.length} 个章节`, {
+  toast.success(`Successfully extracted ${chapters.length} chapters.`, {
         duration: 3000,
         position: 'top-center',
       })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('progress.extractionError'), {
+  toast.error(err instanceof Error ? err.message : t('progress.extractionError'), {
         duration: 5000,
         position: 'top-center',
       })
@@ -280,7 +280,7 @@ function App() {
       return
     }
 
-    // 开始新任务时清空上次显示的内容
+    // Clear previous content when starting a new task
     setBookSummary(null)
     setBookMindMap(null)
     setProcessing(true)
@@ -300,13 +300,13 @@ function App() {
         }
       })
 
-      // 只处理选中的章节
+  // Only process selected chapters
       const chapters = extractedChapters.filter(chapter => selectedChapters.has(chapter.id))
 
       const totalChapters = chapters.length
       const processedChapters: Chapter[] = []
 
-      // 根据模式初始化状态
+  // Initialize state based on mode
       if (processingMode === 'summary') {
         setBookSummary({
           title: bookData.title,
@@ -324,15 +324,15 @@ function App() {
         })
       }
 
-      // 步骤3: 逐章处理
+  // Step 3: Process chapters one by one
       for (let i = 0; i < chapters.length; i++) {
         const chapter = chapters[i]
-        setCurrentStep(`正在处理第 ${i + 1}/${totalChapters} 章: ${chapter.title}`)
+  setCurrentStep(`Processing chapter ${i + 1}/${totalChapters}: ${chapter.title}`)
 
         let processedChapter: Chapter
 
         if (processingMode === 'summary') {
-          // 文字总结模式
+          // Text summary mode
           let summary = cacheService.getString(file.name, 'summary', chapter.id)
 
           if (!summary) {
@@ -353,7 +353,7 @@ function App() {
             chapters: [...processedChapters]
           }))
         } else if (processingMode === 'mindmap') {
-          // 章节思维导图模式
+          // Chapter mind map mode
           let mindMap = cacheService.getMindMap(file.name, 'mindmap', chapter.id)
 
           if (!mindMap) {
@@ -361,7 +361,7 @@ function App() {
             cacheService.setCache(file.name, 'mindmap', mindMap, chapter.id)
           }
 
-          if (!mindMap.nodeData) continue // 无需总结的章节
+          if (!mindMap.nodeData) continue // Skip chapters that don't need a summary
           processedChapter = {
             ...chapter,
             mindMap,
@@ -375,7 +375,7 @@ function App() {
             chapters: [...processedChapters]
           }))
         } else if (processingMode === 'combined-mindmap') {
-          // 整书思维导图模式 - 只收集章节内容，不生成单独的思维导图
+          // Whole book mind map mode - only collect chapter content, do not generate individual mind maps
           processedChapter = {
             ...chapter,
             processed: true
@@ -389,21 +389,21 @@ function App() {
           }))
         }
 
-        setProgress(20 + (i + 1) / totalChapters * 60)
+  setProgress(20 + (i + 1) / totalChapters * 60)
       }
 
       if (processingMode === 'summary') {
-        // 文字总结模式的后续步骤
-        // 步骤4: 分析章节关联
-        setCurrentStep('正在分析章节关联...')
+        // Text summary mode follow-up steps
+        // Step 4: Analyze chapter connections
+        setCurrentStep('Analyzing chapter connections...')
         let connections = cacheService.getString(file.name, 'connections')
         if (!connections) {
-          console.log('🔄 [DEBUG] 缓存未命中，开始分析章节关联')
+          console.log('🔄 [DEBUG] Cache miss, analyzing chapter connections')
           connections = await aiService.analyzeConnections(processedChapters, processingOptions.outputLanguage)
           cacheService.setCache(file.name, 'connections', connections)
-          console.log('💾 [DEBUG] 章节关联已缓存')
+          console.log('💾 [DEBUG] Chapter connections cached')
         } else {
-          console.log('✅ [DEBUG] 使用缓存的章节关联')
+          console.log('✅ [DEBUG] Using cached chapter connections')
         }
 
         setBookSummary(prevSummary => ({
@@ -412,11 +412,11 @@ function App() {
         }))
         setProgress(85)
 
-        // 步骤5: 生成全书总结
-        setCurrentStep('正在生成全书总结...')
+        // Step 5: Generate overall book summary
+        setCurrentStep('Generating overall book summary...')
         let overallSummary = cacheService.getString(file.name, 'overall_summary')
         if (!overallSummary) {
-          console.log('🔄 [DEBUG] 缓存未命中，开始生成全书总结')
+          console.log('🔄 [DEBUG] Cache miss, generating overall book summary')
           overallSummary = await aiService.generateOverallSummary(
             bookData.title,
             processedChapters,
@@ -424,9 +424,9 @@ function App() {
             processingOptions.outputLanguage
           )
           cacheService.setCache(file.name, 'overall_summary', overallSummary)
-          console.log('💾 [DEBUG] 全书总结已缓存')
+          console.log('💾 [DEBUG] Overall book summary cached')
         } else {
-          console.log('✅ [DEBUG] 使用缓存的全书总结')
+          console.log('✅ [DEBUG] Using cached overall book summary')
         }
 
         setBookSummary(prevSummary => ({
@@ -434,17 +434,17 @@ function App() {
           overallSummary
         }))
       } else if (processingMode === 'mindmap') {
-        // 章节思维导图模式的后续步骤
-        // 步骤4: 合并章节思维导图
-        setCurrentStep('正在合并章节思维导图...')
+        // Chapter mind map mode follow-up steps
+        // Step 4: Merge chapter mind maps
+        setCurrentStep('Merging chapter mind maps...')
         let combinedMindMap = cacheService.getMindMap(file.name, 'merged_mindmap')
         if (!combinedMindMap) {
-          console.log('🔄 [DEBUG] 缓存未命中，开始合并章节思维导图')
-          // 创建根节点
+          console.log('🔄 [DEBUG] Cache miss, merging chapter mind maps')
+          // Create root node
           const rootNode = {
             topic: bookData.title,
             id: '0',
-            tags: ['全书'],
+            tags: ['Whole Book'],
             children: processedChapters.map((chapter, index) => ({
               topic: chapter.title,
               id: `chapter_${index + 1}`,
@@ -459,9 +459,9 @@ function App() {
           }
 
           cacheService.setCache(file.name, 'merged_mindmap', combinedMindMap)
-          console.log('💾 [DEBUG] 合并思维导图已缓存')
+          console.log('💾 [DEBUG] Merged mind map cached')
         } else {
-          console.log('✅ [DEBUG] 使用缓存的合并思维导图')
+          console.log('✅ [DEBUG] Using cached merged mind map')
         }
 
         setProgress(85)
@@ -471,17 +471,17 @@ function App() {
           combinedMindMap
         }))
       } else if (processingMode === 'combined-mindmap') {
-        // 整书思维导图模式的后续步骤
-        // 步骤4: 生成整书思维导图
-        setCurrentStep('正在生成整书思维导图...')
+        // Whole book mind map mode follow-up steps
+        // Step 4: Generate whole book mind map
+        setCurrentStep('Generating whole book mind map...')
         let combinedMindMap = cacheService.getMindMap(file.name, 'combined_mindmap')
         if (!combinedMindMap) {
-          console.log('🔄 [DEBUG] 缓存未命中，开始生成整书思维导图')
+          console.log('🔄 [DEBUG] Cache miss, generating whole book mind map')
           combinedMindMap = await aiService.generateCombinedMindMap(bookData.title, processedChapters, customPrompt)
           cacheService.setCache(file.name, 'combined_mindmap', combinedMindMap)
-          console.log('💾 [DEBUG] 整书思维导图已缓存')
+          console.log('💾 [DEBUG] Whole book mind map cached')
         } else {
-          console.log('✅ [DEBUG] 使用缓存的整书思维导图')
+          console.log('✅ [DEBUG] Using cached whole book mind map')
         }
 
         setBookMindMap(prevMindMap => ({
@@ -492,7 +492,7 @@ function App() {
       }
 
       setProgress(100)
-      setCurrentStep('处理完成！')
+  setCurrentStep('Processing complete!')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('progress.processingError'), {
         duration: 5000,

@@ -2,7 +2,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker?worker&url'
 import { SKIP_CHAPTER_KEYWORDS } from './constants'
 
-// 设置 PDF.js worker - 使用本地文件
+// Set PDF.js worker - use local file
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 }
@@ -23,19 +23,19 @@ export class PdfProcessor {
 
   async parsePdf(file: File): Promise<BookData> {
     try {
-      // 将File转换为ArrayBuffer
+  // Convert File to ArrayBuffer
       const arrayBuffer = await file.arrayBuffer()
 
-      // 使用PDF.js解析PDF文件
+  // Use PDF.js to parse PDF file
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
-      // 获取PDF元数据
+  // Get PDF metadata
       const metadata = await pdf.getMetadata()
       console.log('metadata', metadata)
-      const title = (metadata.info as any)?.Title || file.name.replace('.pdf', '') || '未知标题'
-      const author = (metadata.info as any)?.Author || '未知作者'
+  const title = (metadata.info as any)?.Title || file.name.replace('.pdf', '') || 'Unknown Title'
+  const author = (metadata.info as any)?.Author || 'Unknown Author'
 
-      console.log(`📚 [DEBUG] PDF解析完成:`, {
+  console.log(`📚 [DEBUG] PDF parsing completed:`, {
         title,
         author,
         totalPages: pdf.numPages
@@ -47,7 +47,7 @@ export class PdfProcessor {
         totalPages: pdf.numPages
       }
     } catch (error) {
-      throw new Error(`解析PDF文件失败: ${error instanceof Error ? error.message : '未知错误'}`)
+  throw new Error(`Failed to parse PDF file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -56,38 +56,33 @@ export class PdfProcessor {
       const arrayBuffer = await file.arrayBuffer()
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
+  // Convert File to ArrayBuffer
       const chapters: ChapterData[] = []
       const totalPages = pdf.numPages
 
-      console.log(`📚 [DEBUG] 开始提取PDF内容，总页数: ${totalPages}`)
+  // Use PDF.js to parse the PDF file
+  console.log(`📚 [DEBUG] Starting to extract PDF content, total pages: ${totalPages}`)
 
-      // 首先尝试使用PDF的outline（书签/目录）来获取章节
+  // First, try to get chapters using the PDF's outline (bookmarks/table of contents)
       try {
         const outline = await pdf.getOutline()
         if (outline && outline.length > 0) {
-          // 获取章节信息
           const chapterInfos = await this.extractChaptersFromOutline(pdf, outline, 0, maxSubChapterDepth)
           console.log(chapterInfos, 'chapterInfos')
           if (chapterInfos.length > 0) {
-            // 根据章节信息提取内容
+            // Extract content based on chapter information
             for (let i = 0; i < chapterInfos.length; i++) {
               const chapterInfo = chapterInfos[i]
-
-              // 检查是否需要跳过此章节
+              // Check if this chapter should be skipped
               if (skipNonEssentialChapters && this.shouldSkipChapter(chapterInfo.title)) {
-                console.log(`⏭️ [DEBUG] 跳过无关键内容章节: "${chapterInfo.title}"`)
+                console.log(`⏭️ [DEBUG] Skipping non-essential chapter: "${chapterInfo.title}"`)
                 continue
               }
-
               const nextChapterInfo = chapterInfos[i + 1]
-
               const startPage = chapterInfo.pageIndex + 1
               const endPage = nextChapterInfo ? nextChapterInfo.pageIndex : totalPages
-
-              console.log(`📄 [DEBUG] 提取章节 "${chapterInfo.title}" (第${startPage}-${endPage}页)`)
-
+              console.log(`📄 [DEBUG] Extracting chapter "${chapterInfo.title}" (pages ${startPage}-${endPage})`)
               const chapterContent = await this.extractTextFromPages(pdf, startPage, endPage)
-
               if (chapterContent.trim().length > 100) {
                 chapters.push({
                   id: `chapter-${chapters.length + 1}`,
@@ -99,80 +94,68 @@ export class PdfProcessor {
           }
         }
       } catch (outlineError) {
-        console.warn(`⚠️ [DEBUG] 无法获取PDF目录:`, outlineError)
+        console.warn(`⚠️ [DEBUG] Unable to get PDF outline:`, outlineError)
       }
 
-      // 如果没有从outline获取到章节，使用备用方法
+            // Extract content based on chapter information
+  // If no chapters were obtained from the outline, use a fallback method
       if (chapters.length === 0) {
-        console.log(`📖 [DEBUG] 使用备用分章节方法，智能检测: ${useSmartDetection}`)
-
-        // 获取所有页面的文本内容
+        console.log(`📖 [DEBUG] Using fallback chapter extraction method, smart detection: ${useSmartDetection}`)
+        // Get all page texts
         const allPageTexts: string[] = []
-
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-          console.log(`📖 [DEBUG] 处理第 ${pageNum}/${totalPages} 页`)
-
+          console.log(`📖 [DEBUG] Processing page ${pageNum}/${totalPages}`)
           try {
             const page = await pdf.getPage(pageNum)
             const textContent = await page.getTextContent()
-
-            // 提取页面文本
+            // Extract page text
             const pageText = textContent.items
               .map((item: any) => item.str)
               .join(' ')
               .trim()
-
             allPageTexts.push(pageText)
-            console.log(`📄 [DEBUG] 第${pageNum}页文本长度: ${pageText.length} 字符`)
+            console.log(`📄 [DEBUG] Page ${pageNum} text length: ${pageText.length} characters`)
           } catch (pageError) {
-            console.warn(`❌ [DEBUG] 跳过第${pageNum}页:`, pageError)
+            console.warn(`❌ [DEBUG] Skipping page ${pageNum}:`, pageError)
             allPageTexts.push('')
           }
         }
-
         let detectedChapters: ChapterData[] = []
-
-        // 只有在用户启用智能检测时才使用
+        // Only use if the user has enabled smart detection
         if (useSmartDetection) {
-          console.log(`🧠 [DEBUG] 启用智能章节检测`)
+          console.log(`🧠 [DEBUG] Smart chapter detection enabled`)
           detectedChapters = this.detectChapters(allPageTexts)
         }
-
         if (detectedChapters.length === 0) {
-          // 如果没有检测到章节，按页面分组
-          const pagesPerChapter = Math.max(1, Math.floor(totalPages / 10)) // 每章最多10页
-
+          // If no chapters were detected, group by pages
+          const pagesPerChapter = Math.max(1, Math.floor(totalPages / 10)) // max 10 pages per chapter
           for (let i = 0; i < totalPages; i += pagesPerChapter) {
             const endPage = Math.min(i + pagesPerChapter, totalPages)
             const chapterContent = allPageTexts
               .slice(i, endPage)
               .join('\n\n')
               .trim()
-
             if (chapterContent.length > 100) {
               chapters.push({
                 id: `chapter-${Math.floor(i / pagesPerChapter) + 1}`,
-                title: `第 ${Math.floor(i / pagesPerChapter) + 1} 部分 (第${i + 1}-${endPage}页)`,
+                title: `Part ${Math.floor(i / pagesPerChapter) + 1} (pages ${i + 1}-${endPage})`,
                 content: chapterContent
               })
             }
           }
         } else {
-          // 使用检测到的章节
+          // Use detected chapters
           chapters.push(...detectedChapters)
         }
       }
-
-      console.log(`📊 [DEBUG] 最终提取到 ${chapters.length} 个章节`)
-
+      console.log(`📊 [DEBUG] Finally extracted ${chapters.length} chapters`)
       if (chapters.length === 0) {
-        throw new Error('未找到有效的章节内容')
+        throw new Error('No valid chapter content found')
       }
-
       return chapters
     } catch (error) {
-      console.error(`❌ [DEBUG] 提取章节失败:`, error)
-      throw new Error(`提取章节失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    console.error(`❌ [DEBUG] Failed to extract chapters:`, error)
+    throw new Error(`Failed to extract chapters: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -181,40 +164,42 @@ export class PdfProcessor {
 
     for (const item of outline) {
       try {
-        // 递归处理子章节
+  // Recursively process subchapters
         if (item.items && item.items.length > 0) {
-          // 只有当maxDepth大于0且当前深度小于最大深度时才递归处理子章节
+          // Only recursively process subchapters if maxDepth > 0 and currentDepth < maxDepth
           if (maxDepth > 0 && currentDepth < maxDepth) {
             const subChapters = await this.extractChaptersFromOutline(pdf, item.items, currentDepth + 1, maxDepth)
             chapterInfos.push(...subChapters)
           }
         } else if (item.dest) {
-          // 处理目标引用
+          // Handle destination reference
+          // Use detected chapters
           let destArray
           if (typeof item.dest === 'string') {
             destArray = await pdf.getDestination(item.dest)
           } else {
             destArray = item.dest
+      console.log(`📊 [DEBUG] Finally extracted ${chapters.length} chapters`)
           }
 
           if (destArray && destArray[0]) {
+        throw new Error('No valid chapter content found')
             const ref = destArray[0]
             const pageIndex = await pdf.getPageIndex(ref)
 
             chapterInfos.push({
-              title: item.title || `章节 ${chapterInfos.length + 1}`,
+              title: item.title || `Chapter ${chapterInfos.length + 1}`,
               pageIndex: pageIndex
             })
-
-            console.log(`📖 [DEBUG] 章节: "${item.title}" -> 第${pageIndex + 1}页`)
+            console.log(`📖 [DEBUG] Chapter: "${item.title}" -> page ${pageIndex + 1}`)
           }
         }
       } catch (error) {
-        console.warn(`⚠️ [DEBUG] 跳过章节 "${item.title}":`, error)
+  console.warn(`⚠️ [DEBUG] Skipping chapter "${item.title}":`, error)
       }
     }
 
-    // 按页面索引排序
+  // Sort by page index
     chapterInfos.sort((a, b) => a.pageIndex - b.pageIndex)
 
     return chapterInfos
@@ -259,16 +244,16 @@ export class PdfProcessor {
 
     for (let i = 0; i < pageTexts.length; i++) {
       const pageText = pageTexts[i].trim()
-      if (pageText.length < 50) continue // 跳过内容太少的页面
+  if (pageText.length < 50) continue // Skip pages with too little content
 
-      // 检查是否是新章节的开始
+  // Check if this is the start of a new chapter
       let isNewChapter = false
       let chapterTitle = ''
 
       for (const pattern of chapterPatterns) {
         const match = pageText.match(pattern)
         if (match) {
-          // 提取章节标题（取前100个字符作为标题）
+          // Extract chapter title (use first 100 chars as title)
           const titleMatch = pageText.match(/^(.{1,100})/)
           chapterTitle = titleMatch ? titleMatch[1].trim() : `章节 ${chapterCount + 1}`
           isNewChapter = true
@@ -277,7 +262,7 @@ export class PdfProcessor {
       }
 
       if (isNewChapter) {
-        // 保存上一个章节
+  // Save previous chapter
         if (currentChapter && currentChapter.content.trim().length > 200) {
           chapters.push({
             id: `chapter-${chapterCount}`,
@@ -286,7 +271,7 @@ export class PdfProcessor {
           })
         }
 
-        // 开始新章节
+  // Start new chapter
         chapterCount++
         currentChapter = {
           title: chapterTitle,
@@ -296,10 +281,10 @@ export class PdfProcessor {
 
         console.log(`📖 [DEBUG] 检测到新章节: "${chapterTitle}" (第${i + 1}页)`)
       } else if (currentChapter) {
-        // 添加到当前章节
+  // Add to current chapter
         currentChapter.content += '\n\n' + pageText
       } else {
-        // 如果还没有章节，创建第一个章节
+  // If no chapter yet, create the first chapter
         chapterCount++
         currentChapter = {
           title: `第 ${chapterCount} 章`,
@@ -309,7 +294,7 @@ export class PdfProcessor {
       }
     }
 
-    // 保存最后一个章节
+  // Save the last chapter
     if (currentChapter && currentChapter.content.trim().length > 200) {
       chapters.push({
         id: `chapter-${chapterCount}`,
@@ -318,12 +303,12 @@ export class PdfProcessor {
       })
     }
 
-    console.log(`🔍 [DEBUG] 章节检测完成，找到 ${chapters.length} 个章节`)
+  console.log(`🔍 [DEBUG] Chapter detection complete, found ${chapters.length} chapters`)
 
     return chapters
   }
 
-  // 检查是否应该跳过某个章节
+  // Check if a chapter should be skipped
   private shouldSkipChapter(title: string): boolean {
     const normalizedTitle = title.toLowerCase().trim()
     return SKIP_CHAPTER_KEYWORDS.some(keyword =>
