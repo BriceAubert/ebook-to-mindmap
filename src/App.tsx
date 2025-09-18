@@ -244,7 +244,7 @@ function App() {
 
       setBookData(extractedBookData)
       setExtractedChapters(chapters)
-      // 默认选中所有章节
+      // All chapters are selected by default
       setSelectedChapters(new Set(chapters.map(chapter => chapter.id)))
   setCurrentStep(`Chapter extraction complete! ${chapters.length} chapters extracted.`)
 
@@ -516,7 +516,7 @@ function App() {
           <LanguageSwitcher />
         </div>
 
-        {/* 文件上传和配置 */}
+        {/* File upload and configuration */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

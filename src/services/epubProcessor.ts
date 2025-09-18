@@ -17,17 +17,17 @@ export interface BookData {
 export class EpubProcessor {
   async parseEpub(file: File): Promise<BookData> {
     try {
-      // 将File转换为ArrayBuffer
+  // Convert File to ArrayBuffer
         const arrayBuffer = await file.arrayBuffer()
 
-      // 使用epub.js解析EPUB文件
+  // Parse EPUB file using epub.js
       const book = ePub()
       await book.open(arrayBuffer)
 
-      // 等待书籍加载完成
+  // Wait for book to finish loading
       await book.ready
 
-      // 获取书籍元数据
+  // Get book metadata
         const title = book.packaging?.metadata?.title || 'Unknown Title'
         const author = book.packaging?.metadata?.creator || 'Unknown Author'
 
@@ -49,13 +49,13 @@ export class EpubProcessor {
         const toc = book.navigation.toc
         if (toc && toc.length > 0) {
 
-          // 获取章节信息
+            // Get chapter information
           const chapterInfos = await this.extractChaptersFromToc(book, toc, 0, maxSubChapterDepth)
             console.log(`📚 [DEBUG] Found ${chapterInfos.length} chapter infos`, chapterInfos)
           if (chapterInfos.length > 0) {
-            // 根据章节信息提取内容
+            // Extract content based on chapter information
             for (const chapterInfo of chapterInfos) {
-              // 检查是否需要跳过此章节
+              // Check if this chapter should be skipped
               if (skipNonEssentialChapters && this.shouldSkipChapter(chapterInfo.title)) {
                   console.log(`⏭️ [DEBUG] Skipping non-essential chapter: "${chapterInfo.title}"`)
                 continue
@@ -78,14 +78,14 @@ export class EpubProcessor {
       } catch (tocError) {
           console.warn(`⚠️ [DEBUG] Unable to get EPUB table of contents:`, tocError)
       }
-      // 应用智能章节检测
+  // Apply smart chapter detection
       const finalChapters = this.detectChapters(chapters, useSmartDetection)
         console.log(`📊 [DEBUG] Finally extracted ${finalChapters.length} chapters`)
 
       return finalChapters
     } catch (error) {
         console.error(`❌ [DEBUG] Failed to extract chapters:`, error)
-      throw new Error(`提取章节失败: ${error instanceof Error ? error.message : '未知错误'}`)
+  throw new Error(`Failed to extract chapters: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -117,18 +117,18 @@ export class EpubProcessor {
     try {
         console.log(`🔍 [DEBUG] Trying to get chapter content by href: ${href}`)
 
-      // 清理href，移除锚点部分
+  // Clean href, remove anchor part
       const cleanHref = href.split('#')[0]
 
       let allContent = ''
 
-      // 首先获取主章节内容
+  // First get main chapter content
       const mainContent = await this.getSingleChapterContent(book, cleanHref)
       if (mainContent) {
         allContent += mainContent
       }
 
-      // 如果有子项目，也要获取子项目的内容
+  // If there are subitems, also get their content
       if (subitems && subitems.length > 0) {
 
         for (const subitem of subitems) {
@@ -168,13 +168,13 @@ export class EpubProcessor {
         return ''
       }
 
-      // 读取章节内容
+  // Read chapter content
       const chapterHTML = await section.render(book.load.bind(book))
 
-      // 提取纯文本内容
+  // Extract plain text content
       const { textContent } = this.extractTextFromXHTML(chapterHTML)
 
-      // 卸载章节内容以释放内存
+  // Unload chapter content to free memory
       section.unload()
 
       return textContent
@@ -201,27 +201,27 @@ export class EpubProcessor {
       const parser = new DOMParser()
       const doc = parser.parseFromString(xhtmlContent, 'application/xhtml+xml')
 
-      // 检查解析错误
+  // Check for parse errors
       const parseError = doc.querySelector('parsererror')
       if (parseError) {
           console.warn(`⚠️ [DEBUG] DOM parse error, will use regex fallback:`, parseError.textContent)
-        throw new Error('DOM解析失败')
+  throw new Error('DOM parse failed')
       }
 
-      // 提取正文内容
+  // Extract main body content
       const body = doc.querySelector('body')
       if (!body) {
         throw new Error('未找到body元素')
       }
 
-      // 移除脚本和样式标签
+  // Remove script and style tags
       const scripts = body.querySelectorAll('script, style')
       scripts.forEach(el => el.remove())
 
-      // 获取纯文本内容
+  // Get plain text content
       let textContent = body.textContent || ''
 
-      // 清理文本：移除多余的空白字符
+  // Clean text: remove extra whitespace
       textContent = textContent
         .replace(/\s+/g, ' ')
         .replace(/\n\s*\n/g, '\n')
@@ -232,34 +232,34 @@ export class EpubProcessor {
       return { textContent }
     } catch (error) {
         console.warn(`⚠️ [DEBUG] DOM parse failed, using regex fallback:`, error)
-      // 如果DOM解析失败，使用正则表达式作为备选方案
+  // If DOM parsing fails, use regex as a fallback
       return this.extractTextWithRegex(xhtmlContent)
     }
   }
 
   private extractTextWithRegex(xhtmlContent: string): { title: string; textContent: string } {
-    console.log(`🔧 [DEBUG] 使用正则表达式方案解析内容，长度: ${xhtmlContent.length}`)
+  console.log(`🔧 [DEBUG] Using regex fallback to parse content, length: ${xhtmlContent.length}`)
 
-    // 移除XML声明和DOCTYPE
+  // Remove XML declaration and DOCTYPE
     let content = xhtmlContent.replace(/<\?xml[^>]*\?>/gi, '')
     content = content.replace(/<!DOCTYPE[^>]*>/gi, '')
-      console.log(`🧹 [DEBUG] After removing XML declaration, length: ${content.length}`)
+  console.log(`🧹 [DEBUG] After removing XML declaration, length: ${content.length}`)
 
-    // 提取标题
+  // Extract title
     let title = ''
     const titleMatch = content.match(/<(?:h[1-6]|title)[^>]*>([^<]+)<\/(?:h[1-6]|title)>/i)
     if (titleMatch) {
       title = titleMatch[1].trim()
-        console.log(`📋 [DEBUG] Regex extracted title: "${title}"`)
+  console.log(`📋 [DEBUG] Regex extracted title: "${title}"`)
     } else {
-        console.log(`📋 [DEBUG] Regex did not find title`)
+  console.log(`📋 [DEBUG] Regex did not find title`)
     }
 
-    // 移除HTML标签
+  // Remove HTML tags
     let textContent = content.replace(/<[^>]+>/g, ' ')
-      console.log(`🏷️ [DEBUG] After removing HTML tags, length: ${textContent.length}`)
+  console.log(`🏷️ [DEBUG] After removing HTML tags, length: ${textContent.length}`)
 
-    // 解码HTML实体
+  // Decode HTML entities
     textContent = textContent
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
@@ -267,16 +267,16 @@ export class EpubProcessor {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&nbsp;/g, ' ')
-      console.log(`🔤 [DEBUG] After decoding HTML entities, length: ${textContent.length}`)
+  console.log(`🔤 [DEBUG] After decoding HTML entities, length: ${textContent.length}`)
 
-    // 清理空白字符
+  // Clean whitespace characters
     textContent = textContent
       .replace(/\s+/g, ' ')
       .replace(/\n\s*\n/g, '\n')
       .trim()
 
-      console.log(`✨ [DEBUG] Regex final text length: ${textContent.length}`)
-      console.log(`✨ [DEBUG] Regex text preview (first 100 chars): "${textContent}"`)
+  console.log(`✨ [DEBUG] Regex final text length: ${textContent.length}`)
+  console.log(`✨ [DEBUG] Regex text preview (first 100 chars): "${textContent}"`)
 
     return { title, textContent }
   }
@@ -302,20 +302,20 @@ export class EpubProcessor {
 
     for (const chapter of chapters) {
       const content = chapter.content.trim()
-      if (content.length < 100) continue // 跳过内容太少的章节
+  if (content.length < 100) continue // Skip chapters with too little content
 
-      // 检查是否是新章节的开始
+  // Check if this is the start of a new chapter
       let isNewChapter = false
       let chapterTitle = chapter.title
 
-      // 如果原标题不明确，尝试从内容中提取
+  // If the original title is unclear, try to extract from content
       if (!chapterTitle || chapterTitle.includes('章节') || chapterTitle.includes('Chapter')) {
         for (const pattern of chapterPatterns) {
           const match = content.match(pattern)
           if (match) {
-            // 提取章节标题（取前100个字符作为标题）
+            // Extract chapter title (use first 100 characters as title)
             const titleMatch = content.match(/^(.{1,100})/)
-            chapterTitle = titleMatch ? titleMatch[1].trim() : `章节 ${chapterCount + 1}`
+            chapterTitle = titleMatch ? titleMatch[1].trim() : `Chapter ${chapterCount + 1}`
             isNewChapter = true
             break
           }
@@ -323,7 +323,7 @@ export class EpubProcessor {
       }
 
       if (isNewChapter || !currentChapter) {
-        // 保存上一个章节
+  // Save previous chapter
         if (currentChapter && currentChapter.content.trim().length > 200) {
           detectedChapters.push({
             id: currentChapter.id,
@@ -332,22 +332,22 @@ export class EpubProcessor {
           })
         }
 
-        // 开始新章节
+  // Start new chapter
         chapterCount++
         currentChapter = {
           id: chapter.id || `chapter-${chapterCount}`,
-          title: chapterTitle || `第 ${chapterCount} 章`,
+          title: chapterTitle || `Chapter ${chapterCount}`,
           content: content
         }
 
         console.log(`📖 [DEBUG] 检测到新章节: "${chapterTitle}"`)
       } else {
-        // 合并到当前章节
+  // Merge into current chapter
         currentChapter.content += '\n\n' + content
       }
     }
 
-    // 保存最后一个章节
+  // Save last chapter
     if (currentChapter && currentChapter.content.trim().length > 200) {
       detectedChapters.push({
         id: currentChapter.id,
@@ -356,7 +356,7 @@ export class EpubProcessor {
       })
     }
 
-      console.log(`🔍 [DEBUG] EPUB chapter detection complete, found ${detectedChapters.length} chapters`)
+  console.log(`🔍 [DEBUG] EPUB chapter detection complete, found ${detectedChapters.length} chapters`)
 
     return detectedChapters.length > 0 ? detectedChapters : chapters
   }
