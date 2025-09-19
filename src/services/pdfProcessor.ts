@@ -30,19 +30,19 @@ export class PdfProcessor {
 
   async parsePdf(file: File): Promise<BookData> {
     try {
-  // Convert File to ArrayBuffer
+      // Convert File to ArrayBuffer
       const arrayBuffer = await file.arrayBuffer()
 
-  // Use PDF.js to parse PDF file
+      // Use PDF.js to parse PDF file
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
-  // Get PDF metadata
+      // Get PDF metadata
       const metadata = await pdf.getMetadata()
       console.log('metadata', metadata)
-  const title = (metadata.info as any)?.Title || file.name.replace('.pdf', '') || 'Unknown Title'
-  const author = (metadata.info as any)?.Author || 'Unknown Author'
+      const title = (metadata.info as any)?.Title || file.name.replace('.pdf', '') || 'Unknown Title'
+      const author = (metadata.info as any)?.Author || 'Unknown Author'
 
-  console.log(`📚 [DEBUG] PDF parsing completed:`, {
+      console.log(`📚 [DEBUG] PDF parsing completed:`, {
         title,
         author,
         totalPages: pdf.numPages
@@ -55,7 +55,7 @@ export class PdfProcessor {
         pdfDocument: pdf
       }
     } catch (error) {
-  throw new Error(`Failed to parse PDF file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(`Failed to parse PDF file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -64,14 +64,14 @@ export class PdfProcessor {
       const arrayBuffer = await file.arrayBuffer()
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
-  // Convert File to ArrayBuffer
+      // Convert File to ArrayBuffer
       const chapters: ChapterData[] = []
       const totalPages = pdf.numPages
 
-  // Use PDF.js to parse the PDF file
-  console.log(`📚 [DEBUG] Starting to extract PDF content, total pages: ${totalPages}`)
+      // Use PDF.js to parse the PDF file
+      console.log(`📚 [DEBUG] Starting to extract PDF content, total pages: ${totalPages}`)
 
-  // First, try to get chapters using the PDF's outline (bookmarks/table of contents)
+      // First, try to get chapters using the PDF's outline (bookmarks/table of contents)
       try {
         const outline = await pdf.getOutline()
         if (outline && outline.length > 0) {
@@ -108,8 +108,8 @@ export class PdfProcessor {
         console.warn(`⚠️ [DEBUG] Unable to get PDF outline:`, outlineError)
       }
 
-            // Extract content based on chapter information
-  // If no chapters were obtained from the outline, use a fallback method
+      // Extract content based on chapter information
+      // If no chapters were obtained from the outline, use a fallback method
       if (chapters.length === 0) {
         console.log(`📖 [DEBUG] Using fallback chapter extraction method, smart detection: ${useSmartDetection}`)
         // Get all page texts
@@ -167,8 +167,8 @@ export class PdfProcessor {
       }
       return chapters
     } catch (error) {
-    console.error(`❌ [DEBUG] Failed to extract chapters:`, error)
-    throw new Error(`Failed to extract chapters: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error(`❌ [DEBUG] Failed to extract chapters:`, error)
+      throw new Error(`Failed to extract chapters: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -177,7 +177,7 @@ export class PdfProcessor {
 
     for (const item of outline) {
       try {
-  // Recursively process subchapters
+        // Recursively process subchapters
         if (item.items && item.items.length > 0) {
           // Only recursively process subchapters if maxDepth > 0 and currentDepth < maxDepth
           if (maxDepth > 0 && currentDepth < maxDepth) {
@@ -192,11 +192,10 @@ export class PdfProcessor {
             destArray = await pdf.getDestination(item.dest)
           } else {
             destArray = item.dest
-      console.log(`📊 [DEBUG] Finally extracted ${chapters.length} chapters`)
           }
 
           if (destArray && destArray[0]) {
-        throw new Error('No valid chapter content found')
+            throw new Error('No valid chapter content found')
             const ref = destArray[0]
             const pageIndex = await pdf.getPageIndex(ref)
 
@@ -208,7 +207,7 @@ export class PdfProcessor {
           }
         }
       } catch (error) {
-  console.warn(`⚠️ [DEBUG] Skipping chapter "${item.title}":`, error)
+        console.warn(`⚠️ [DEBUG] Skipping chapter "${item.title}":`, error)
       }
     }
 
@@ -257,9 +256,9 @@ export class PdfProcessor {
 
     for (let i = 0; i < pageTexts.length; i++) {
       const pageText = pageTexts[i].trim()
-  if (pageText.length < 50) continue // Skip pages with too little content
+      if (pageText.length < 50) continue // Skip pages with too little content
 
-  // Check if this is the start of a new chapter
+      // Check if this is the start of a new chapter
       let isNewChapter = false
       let chapterTitle = ''
 
@@ -275,7 +274,7 @@ export class PdfProcessor {
       }
 
       if (isNewChapter) {
-  // Save previous chapter
+        // Save previous chapter
         if (currentChapter && currentChapter.content.trim().length > 200) {
           chapters.push({
             id: `chapter-${chapterCount}`,
@@ -285,7 +284,7 @@ export class PdfProcessor {
           })
         }
 
-  // Start new chapter
+        // Start new chapter
         chapterCount++
         currentChapter = {
           title: chapterTitle,
@@ -295,10 +294,10 @@ export class PdfProcessor {
 
         console.log(`📖 [DEBUG] 检测到新章节: "${chapterTitle}" (第${i + 1}页)`)
       } else if (currentChapter) {
-  // Add to current chapter
+        // Add to current chapter
         currentChapter.content += '\n\n' + pageText
       } else {
-  // If no chapter yet, create the first chapter
+        // If no chapter yet, create the first chapter
         chapterCount++
         currentChapter = {
           title: `第 ${chapterCount} 章`,
@@ -308,7 +307,7 @@ export class PdfProcessor {
       }
     }
 
-  // Save the last chapter
+    // Save the last chapter
     if (currentChapter && currentChapter.content.trim().length > 200) {
       chapters.push({
         id: `chapter-${chapterCount}`,
