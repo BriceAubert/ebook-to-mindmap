@@ -85,12 +85,15 @@
     "delete": "删除",
     "viewContent": "查看内容",
     "backToTop": "回到顶部",
+    "backToConfig": "返回配置",
     "openInMindElixir": "在 Mind Elixir Desktop 中打开",
     "clearCache": "清除缓存",
     "copiedToClipboard": "已复制到剪贴板",
     "copyChapterSummary": "复制章节总结",
     "copyChapterContent": "复制章节内容",
     "copyContent": "复制内容",
+    "expand": "展开",
+    "collapse": "折叠",
     "error": "未知错误"
   },
   "config": {

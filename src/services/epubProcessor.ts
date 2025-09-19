@@ -1,4 +1,4 @@
-import ePub, { Book } from '@ssshooter/epubjs'
+import ePub, { Book, type NavItem } from '@ssshooter/epubjs'
 import { SKIP_CHAPTER_KEYWORDS } from './constants'
 
 
@@ -6,10 +6,14 @@ export interface ChapterData {
   id: string
   title: string
   content: string
+  // 章节定位信息，用于后续打开对应书页
+  href?: string // 章节的href路径（用于定位和调试信息）
+  tocItem?: NavItem // 原始的TOC项目信息
+  depth?: number // 章节层级深度
 }
 
 export interface BookData {
-  book: any // epub.js Book instance
+  book: Book // epub.js Book instance
   title: string
   author: string
 }
@@ -46,7 +50,7 @@ export class EpubProcessor {
       const chapters: ChapterData[] = []
 
       try {
-        const toc = book.navigation.toc
+        const toc = book.navigation.toc.filter(item=>!item.href.includes('#'))
         if (toc && toc.length > 0) {
 
             // Get chapter information
@@ -69,7 +73,10 @@ export class EpubProcessor {
                 chapters.push({
                   id: `chapter-${chapters.length + 1}`,
                   title: chapterInfo.title,
-                  content: chapterContent
+                  content: chapterContent,
+                  href: chapterInfo.href,
+                  tocItem: chapterInfo.tocItem,
+                  depth: chapterInfo.depth
                 })
               }
             }
@@ -89,8 +96,8 @@ export class EpubProcessor {
     }
   }
 
-  private async extractChaptersFromToc(book: Book, toc: any[], currentDepth: number = 0, maxDepth: number = 0): Promise<{ title: string, href: string, subitems?: any[] }[]> {
-    const chapterInfos: { title: string, href: string, subitems?: any[] }[] = []
+  private async extractChaptersFromToc(book: Book, toc: NavItem[], currentDepth: number = 0, maxDepth: number = 0): Promise<{ title: string, href: string, subitems?: NavItem[], tocItem: NavItem, depth: number }[]> {
+    const chapterInfos: { title: string, href: string, subitems?: NavItem[], tocItem: NavItem, depth: number }[] = []   
 
     for (const item of toc) {
       try {
@@ -98,10 +105,12 @@ export class EpubProcessor {
           const subChapters = await this.extractChaptersFromToc(book, item.subitems, currentDepth + 1, maxDepth)
           chapterInfos.push(...subChapters)
         } else if (item.href) {
-          const chapterInfo: { title: string, href: string, subitems?: any[] } = {
-              title: item.label || `Chapter ${chapterInfos.length + 1}`,
+          const chapterInfo: { title: string, href: string, subitems?: NavItem[], tocItem: NavItem, depth: number } = {
+            title: item.label || `Chapter ${chapterInfos.length + 1}`,
             href: item.href,
-            subitems: item.subitems
+            subitems: item.subitems,
+            tocItem: item, // 保存原始TOC项目信息
+            depth: currentDepth // 保存章节层级深度
           }
           chapterInfos.push(chapterInfo)
         }
@@ -113,7 +122,7 @@ export class EpubProcessor {
     return chapterInfos
   }
 
-  private async extractContentFromHref(book: Book, href: string, subitems?: any[]): Promise<string> {
+  private async extractContentFromHref(book: Book, href: string, subitems?: NavItem[]): Promise<string> {
     try {
         console.log(`🔍 [DEBUG] Trying to get chapter content by href: ${href}`)
 
@@ -186,10 +195,9 @@ export class EpubProcessor {
 
   private shouldSkipChapter(title: string): boolean {
     if (!title) return false
-
-    const normalizedTitle = title.toLowerCase().trim()
-    return SKIP_CHAPTER_KEYWORDS.some(keyword =>
-      normalizedTitle.includes(keyword.toLowerCase())
+    
+    return SKIP_CHAPTER_KEYWORDS.some(keyword => 
+      title.toLowerCase().includes(keyword.toLowerCase())
     )
   }
 
@@ -241,33 +249,30 @@ export class EpubProcessor {
   console.log(`🔧 [DEBUG] Using regex fallback to parse content, length: ${xhtmlContent.length}`)
 
   // Remove XML declaration and DOCTYPE
-    let content = xhtmlContent.replace(/<\?xml[^>]*\?>/gi, '')
-    content = content.replace(/<!DOCTYPE[^>]*>/gi, '')
-  console.log(`🧹 [DEBUG] After removing XML declaration, length: ${content.length}`)
+    let cleanContent = xhtmlContent
+      .replace(/<\?xml[^>]*\?>/gi, '')
+      .replace(/<!DOCTYPE[^>]*>/gi, '')
+
+    // Remove script and style tags and their contents
+    cleanContent = cleanContent
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
 
   // Extract title
-    let title = ''
-    const titleMatch = content.match(/<(?:h[1-6]|title)[^>]*>([^<]+)<\/(?:h[1-6]|title)>/i)
-    if (titleMatch) {
-      title = titleMatch[1].trim()
-  console.log(`📋 [DEBUG] Regex extracted title: "${title}"`)
-    } else {
-  console.log(`📋 [DEBUG] Regex did not find title`)
-    }
+    const titleMatch = cleanContent.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/i)
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : ''
 
   // Remove HTML tags
-    let textContent = content.replace(/<[^>]+>/g, ' ')
-  console.log(`🏷️ [DEBUG] After removing HTML tags, length: ${textContent.length}`)
+    let textContent = cleanContent.replace(/<[^>]*>/g, ' ')
 
   // Decode HTML entities
     textContent = textContent
+      .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, ' ')
-  console.log(`🔤 [DEBUG] After decoding HTML entities, length: ${textContent.length}`)
 
   // Clean whitespace characters
     textContent = textContent
@@ -275,10 +280,42 @@ export class EpubProcessor {
       .replace(/\n\s*\n/g, '\n')
       .trim()
 
-  console.log(`✨ [DEBUG] Regex final text length: ${textContent.length}`)
-  console.log(`✨ [DEBUG] Regex text preview (first 100 chars): "${textContent}"`)
+    console.log(`✨ [DEBUG] Regular expression solution - Title: "${title}", text length: ${textContent.length}`)
 
     return { title, textContent }
+  }
+
+  // 新增方法：获取章节的HTML内容（不影响原有功能）
+  async getSingleChapterHTML(book: Book, href: string): Promise<string> {
+    try {
+      let section = null
+      const spineItems = book.spine.spineItems
+
+      for (let i = 0; i < spineItems.length; i++) {
+        const spineItem = spineItems[i]
+
+        if (spineItem.href === href || spineItem.href.endsWith(href)) {
+          section = book.spine.get(i)
+          break
+        }
+      }
+
+      if (!section) {
+        console.warn(`❌ [DEBUG] 无法获取章节HTML: ${href}`)
+        return ''
+      }
+
+      // 读取章节内容
+      const chapterHTML = await section.render(book.load.bind(book))
+
+      // 卸载章节内容以释放内存
+      section.unload()
+
+      return chapterHTML
+    } catch (error) {
+      console.warn(`❌ [DEBUG] 获取章节HTML失败 (href: ${href}):`, error)
+      return ''
+    }
   }
 
   private detectChapters(chapters: ChapterData[], useSmartDetection: boolean): ChapterData[] {
@@ -297,7 +334,7 @@ export class EpubProcessor {
     ]
 
     const detectedChapters: ChapterData[] = []
-    let currentChapter: { id: string; title: string; content: string } | null = null
+    let currentChapter: ChapterData | null = null
     let chapterCount = 0
 
     for (const chapter of chapters) {
@@ -328,7 +365,10 @@ export class EpubProcessor {
           detectedChapters.push({
             id: currentChapter.id,
             title: currentChapter.title,
-            content: currentChapter.content.trim()
+            content: currentChapter.content.trim(),
+            href: currentChapter.href,
+            tocItem: currentChapter.tocItem,
+            depth: currentChapter.depth
           })
         }
 
@@ -337,7 +377,10 @@ export class EpubProcessor {
         currentChapter = {
           id: chapter.id || `chapter-${chapterCount}`,
           title: chapterTitle || `Chapter ${chapterCount}`,
-          content: content
+          content: content,
+          href: chapter.href,
+          tocItem: chapter.tocItem,
+          depth: chapter.depth
         }
 
         console.log(`📖 [DEBUG] 检测到新章节: "${chapterTitle}"`)
@@ -352,7 +395,10 @@ export class EpubProcessor {
       detectedChapters.push({
         id: currentChapter.id,
         title: currentChapter.title,
-        content: currentChapter.content.trim()
+        content: currentChapter.content.trim(),
+        href: currentChapter.href,
+        tocItem: currentChapter.tocItem,
+        depth: currentChapter.depth
       })
     }
 

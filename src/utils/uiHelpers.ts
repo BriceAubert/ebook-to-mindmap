@@ -7,10 +7,13 @@ import type { MindElixirData, MindElixirInstance } from 'mind-elixir'
  * Scroll to top of the page
  */
 export const scrollToTop = () => {
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-  })
+  const scrollContainer = document.querySelector('.scroll-container')
+  if (scrollContainer) {
+    scrollContainer.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
 }
 
 /**

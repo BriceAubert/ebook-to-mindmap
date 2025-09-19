@@ -124,12 +124,15 @@
     "language": "Language",
     "viewContent": "View Content",
     "backToTop": "Back to Top",
+    "backToConfig": "Back to Config",
     "openInMindElixir": "Open in Mind Elixir Desktop",
     "clearCache": "Clear Cache",
     "copiedToClipboard": "Copied to clipboard",
     "copyChapterSummary": "Copy Chapter Summary",
     "copyChapterContent": "Copy Chapter Content",
-    "copyContent": "Copy Content"
+    "copyContent": "Copy Content",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "config": {
     "title": "Configuration",
