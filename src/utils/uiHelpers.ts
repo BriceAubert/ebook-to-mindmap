@@ -4,7 +4,7 @@ import { downloadMethodList } from '@mind-elixir/export-mindmap'
 import type { MindElixirData, MindElixirInstance } from 'mind-elixir'
 
 /**
- * 滚动到页面顶部
+ * Scroll to top of the page
  */
 export const scrollToTop = () => {
   const scrollContainer = document.querySelector('.scroll-container')
@@ -17,20 +17,20 @@ export const scrollToTop = () => {
 }
 
 /**
- * 在 MindElixir Desktop 中打开思维导图
- * @param mindmapData 思维导图数据
- * @param title 思维导图标题
+ * Open mind map in MindElixir Desktop
+ * @param mindmapData Mind map data
+ * @param title Mind map title
  */
 export const openInMindElixir = async (mindmapData: MindElixirData, title: string) => {
   try {
     await launchMindElixir(mindmapData)
-    toast.success(`已成功发送"${title}"到 Mind Elixir Desktop`, {
+    toast.success(`Successfully sent "${title}" to Mind Elixir Desktop`, {
       duration: 3000,
       position: 'top-center',
     })
   } catch (error) {
-    console.error('启动 Mind Elixir 失败:', error)
-    toast.error('启动 Mind Elixir 失败', {
+    console.error('Failed to launch Mind Elixir:', error)
+    toast.error('Failed to launch Mind Elixir', {
       duration: 5000,
       position: 'top-center',
     })
@@ -38,29 +38,29 @@ export const openInMindElixir = async (mindmapData: MindElixirData, title: strin
 }
 
 /**
- * 下载思维导图
- * @param mindElixirInstance MindElixir 实例
- * @param title 思维导图标题
- * @param format 导出格式
+ * Download mind map
+ * @param mindElixirInstance MindElixir instance
+ * @param title Mind map title
+ * @param format Export format
  */
 export const downloadMindMap = async (mindElixirInstance: MindElixirInstance, title: string, format: string) => {
   try {
-    // 查找对应的下载方法
+    // Find the corresponding download method
     const method = downloadMethodList.find((item) => item.type === format)
     if (!method) {
-      throw new Error(`不支持的格式: ${format}`)
+      throw new Error(`Unsupported format: ${format}`)
     }
 
-    // 执行下载
-    await method.download(mindElixirInstance)
+  // Execute download
+  await method.download(mindElixirInstance)
 
-    toast.success(`${title} 已成功导出为 ${format} 格式`, {
+    toast.success(`${title} successfully exported as ${format} format`, {
       duration: 3000,
       position: 'top-center',
     })
   } catch (error) {
-    console.error('导出思维导图失败:', error)
-    toast.error(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`, {
+    console.error('Failed to export mind map:', error)
+    toast.error(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
       duration: 5000,
       position: 'top-center',
     })
